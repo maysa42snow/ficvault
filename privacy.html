@@ -360,7 +360,7 @@
             <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>Ship categories and badge colors</li>
             <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>Tags, summaries, ratings, and status</li>
             <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>App preferences (theme, view, sort)</li>
-            <li class="flex items-center gap-2 sm:col-span-2"><span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>Optional Google Drive sync settings (folder name and synced document IDs)</li>
+            <li class="flex items-center gap-2 sm:col-span-2"><span class="w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>Google Docs sync settings (folder name, sync status, and synced document IDs)</li>
           </ul>
         </div>
 
@@ -372,7 +372,7 @@
           <h3 class="font-semibold text-main mb-2">Firebase Authentication &amp; Cloud Firestore</h3>
           <p class="mb-3">When you create an account or sign in, Firebase Authentication processes your email address (for email sign-in), a Firebase user identifier, authentication-provider details, and basic profile information such as display name and profile photo URL. FicVault does not receive or store your account password; password handling is provided by Firebase Authentication.</p>
           <p class="mb-3">Cloud Firestore stores your profile details, story titles and metadata, chapter content, ships, and archive settings so the same account can load its work on another device. Records are placed under your Firebase user ID. The supplied Firestore Security Rules are intended to allow each signed-in user to read and write only their own records.</p>
-          <p class="mb-3">Your archive is not intended to be publicly accessible. However, a person with authorized administrator access to the FicVault Firebase project can technically access data stored in that project. Firebase/Google also process data under their own service terms and privacy documentation.</p>
+          <p class="mb-3">Your archive is not intended to be publicly accessible. However, a person with authorized administrator access to the FicVault Firebase project can technically access data stored in that project. The Drive integration also stores an encrypted Google refresh token in a server-only Firestore record; the browser cannot read this record. Firebase/Google also process data under their own service terms and privacy documentation.</p>
           <p>FicVault does not load Firebase Analytics in this implementation. The Analytics measurement ID in the Firebase configuration is not used by the app code.</p>
         </div>
       </section>
@@ -387,9 +387,9 @@
           FicVault offers an <strong>entirely optional</strong> integration with the Google Drive API (v3) so you can back up and edit your stories as native Google Docs in your own Google Drive. A FicVault account is still required to open the writing studio, but you do not need to connect Google Drive to use the archive.
         </p>
         <p class="mb-5">
-          When you choose to connect Google Drive, FicVault requests only the narrow, non-sensitive OAuth 2.0 scope:
+          When you choose to connect Google Drive, Google asks you to approve the narrow OAuth 2.0 scope:
           <code class="inline-block mt-1 sm:mt-0 text-xs sm:text-sm px-2 py-0.5 rounded-md bg-subtle border border-theme text-main font-mono break-all">https://www.googleapis.com/auth/drive.file</code>.
-          This per-file scope strictly limits what FicVault can access:
+          This per-file scope limits the integration to files and folders created or opened by FicVault. The initial authorization is a one-time action; after approval, FicVault can renew access tokens on the server to perform the document updates you request by saving changes in FicVault:
         </p>
 
         <!-- Two-Column CAN / CANNOT Comparison Cards -->
@@ -409,11 +409,11 @@
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-can font-bold">•</span>
-                <span>Create new native Google Docs files from the drafts you choose to sync.</span>
+                <span>Create native Google Docs for your eligible works and keep them updated automatically after FicVault saves changes.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-can font-bold">•</span>
-                <span>Update existing Google Docs that were previously created by FicVault so your edits stay synced without creating duplicates.</span>
+                <span>Update the same Google Docs created by FicVault instead of creating duplicates. Sync is one-way from FicVault to Google Docs.</span>
               </li>
             </ul>
           </div>
@@ -437,14 +437,17 @@
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-cannot font-bold">•</span>
-                <span>Access your Google Drive in the background after you close the browser tab or disconnect.</span>
+                <span>Periodically scan your Drive or run scheduled sync jobs. Updates are triggered by saves in FicVault; disconnecting removes the stored authorization.</span>
               </li>
             </ul>
           </div>
         </div>
 
         <p>
-          <strong>Direct Browser-to-Google Authentication:</strong> OAuth 2.0 sign-in happens directly between your web browser and Google via Google Identity Services. Your temporary OAuth access token is held strictly in browser memory for your active session—it is never logged, stored on a remote server, or transmitted to the developer or any third party.
+          <strong>Server-assisted OAuth:</strong> Google returns an authorization code to a FicVault Cloud Function. The function exchanges it for tokens and stores the refresh token encrypted in a server-only Firestore record. The refresh token is not available to browser JavaScript. When FicVault sends a document update, the server uses that token to obtain a short-lived access token and call the Google Drive API. The OAuth client secret and token-encryption key are stored as backend secrets, not in the GitHub Pages repository.
+        </p>
+        <p class="mt-3">
+          <strong>Automatic sync direction:</strong> FicVault sends saved story content and metadata to the Google Docs created for those works. It does not import edits made directly in Google Docs back into the FicVault editor. If the integration detects that a Google Doc was changed outside FicVault after its last successful sync, it pauses automatic updates for that document to reduce the risk of overwriting those changes.
         </p>
       </section>
 
@@ -465,7 +468,7 @@
         </div>
 
         <p class="text-sm text-secondary leading-relaxed">
-          In practice, this means any data exchanged with Google APIs is used solely to provide the user-facing document syncing features you explicitly trigger inside FicVault, and for no other purpose.
+          In practice, this means the Google API data is used only to create and update the Google Docs and folders requested through FicVault’s automatic save workflow, and for no other purpose. The integration does not use Google API data for advertising, profiling, or AI training.
         </p>
       </section>
 
@@ -501,7 +504,7 @@
           <h2 class="font-serif-editorial text-xl sm:text-2xl font-bold text-main">Data Retention, Export &amp; Deletion</h2>
         </div>
         <p class="mb-4">
-          Because FicVault stores nothing on external servers, you retain 100% control over keeping, exporting, or deleting your data at any time:
+          FicVault stores your archive in Firebase and keeps a browser cache. You can export your writing at any time, disconnect Google Drive, and request account-data deletion through the support contact:
         </p>
 
         <div class="space-y-3">
@@ -515,7 +518,13 @@
           <div class="rounded-xl bg-surface border border-theme p-4 shadow-card">
             <h3 class="text-sm font-semibold text-main mb-1">Delete Local Stories or Wipe App Data</h3>
             <p class="text-sm text-secondary leading-relaxed">
-              Delete any story, chapter, or ship directly inside FicVault, or clear this site's data in your browser settings to immediately remove all locally stored information.
+              Delete stories from FicVault where the app provides that action, or clear this site's data in your browser settings to remove the local cache. Clearing browser data does not delete your Firebase archive or Google Docs.
+            </p>
+          </div>
+          <div class="rounded-xl bg-surface border border-theme p-4 shadow-card">
+            <h3 class="text-sm font-semibold text-main mb-1">Disconnect Google Drive</h3>
+            <p class="text-sm text-secondary leading-relaxed">
+              Disconnecting removes FicVault's encrypted refresh-token record and asks Google to revoke the grant. Google Docs already created in your Drive are not deleted; manage those files in Google Drive.
             </p>
           </div>
 

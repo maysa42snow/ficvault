@@ -2,6 +2,7 @@
 // Firebase's web API key identifies this project; access is enforced by Auth
 // and Firestore Security Rules (see firestore.rules), not by hiding this key.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-functions.js';
 import {
   getAuth,
   GoogleAuthProvider,
@@ -43,6 +44,7 @@ export const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app, 'us-central1');
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -66,5 +68,7 @@ export {
   orderBy,
   serverTimestamp,
   writeBatch,
-  deleteDoc
+  deleteDoc,
+  getFunctions,
+  httpsCallable
 };

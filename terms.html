@@ -337,7 +337,7 @@
           </li>
           <li class="flex items-start gap-2.5">
             <span class="text-accent font-bold mt-0.5 shrink-0">✦</span>
-            <span><strong>Optional Google Drive sync:</strong> Connecting Google Drive is completely optional, uses only the minimal <code class="text-xs px-1.5 py-0.5 rounded bg-subtle border border-theme font-mono">drive.file</code> scope, and can be revoked anytime.</span>
+            <span><strong>Optional automatic Google Docs sync:</strong> You approve Google Drive access once, then saved changes can update the Docs FicVault created. Access can be revoked anytime.</span>
           </li>
           <li class="flex items-start gap-2.5">
             <span class="text-accent font-bold mt-0.5 shrink-0">✦</span>
@@ -456,15 +456,21 @@
           <h2 class="font-serif-editorial text-xl sm:text-2xl font-bold text-main">Google Drive &amp; Google Docs Integration</h2>
         </div>
         <p class="mb-4">
-          FicVault offers an <strong>entirely optional</strong> integration with Google Drive and Google Docs via Google OAuth 2.0 and the Google Drive API (v3). You may use your FicVault account and archive without connecting Google Drive; this separate integration is only needed for creating or updating Google Docs.
+          FicVault offers an <strong>optional</strong> Google Drive and Google Docs integration via Google OAuth 2.0 and the Google Drive API (v3). You can use FicVault without connecting Drive. When you connect it once, FicVault can automatically create and update Docs for your works after changes are saved in the editor.
         </p>
 
         <div class="print-avoid-break rounded-2xl border p-5 card-info mb-4 space-y-2.5 text-sm text-main leading-relaxed">
           <p class="text-xs font-bold uppercase tracking-wider text-info">Scope &amp; Third-Party Terms</p>
           <p>
-            When you connect Google Drive, FicVault requests only the non-sensitive, per-file scope
+            When you connect Google Drive, FicVault requests the per-file scope
             <code class="inline-block text-xs px-1.5 py-0.5 rounded bg-surface border border-theme font-mono break-all">https://www.googleapis.com/auth/drive.file</code>,
-            which restricts access strictly to folders and Google Docs created or opened by FicVault. Full details on how Google API data is handled are set out in our <a href="./privacy.html#google-drive" class="policy-link font-medium">Privacy Policy</a>.
+            which limits this integration to files and folders created or opened by FicVault. Google authorization is approved once; a server-side token lets FicVault renew access when an automatic document update is needed. Full details are in our <a href="./privacy.html#google-drive" class="policy-link font-medium">Privacy Policy</a>.
+          </p>
+          <p>
+            Automatic sync is one-way: FicVault sends saved editor content to its Google Docs. Changes made directly in Google Docs are not imported into FicVault. If a Doc's modified time changes outside FicVault, automatic updates for that Doc are paused to protect external edits; you may explicitly choose to replace it with the current FicVault version after reviewing the warning.
+          </p>
+          <p>
+            Disconnecting Drive removes FicVault's stored authorization and requests revocation from Google. Existing files in your Drive are not deleted.
           </p>
           <p>
             Your use of Google Drive and Google Docs through FicVault is also subject to the

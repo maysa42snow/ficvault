@@ -40,15 +40,20 @@
     </section>
 
     <section class="panel p-6 sm:p-8 mb-5">
-      <div class="mb-5"><p class="eyebrow mb-2">03 · Integrations</p><h2 class="serif text-2xl font-bold">Google Drive & Docs</h2><p class="text-sm text-muted mt-1">This connection is optional and separate from signing in to FicVault.</p></div>
+      <div class="mb-5"><p class="eyebrow mb-2">03 · Integrations</p><h2 class="serif text-2xl font-bold">Google Drive & Docs</h2><p class="text-sm text-muted mt-1">Connect your Google account once. FicVault handles authorization and document updates automatically.</p></div>
+      <div class="rounded-xl p-4 mb-4" style="background:var(--bg-subtle)">
+        <div class="flex items-center gap-2"><span id="drive-status-dot" class="status-dot"></span><p id="drive-status-title" class="font-semibold text-sm">Checking Google Drive…</p></div>
+        <p id="drive-status-copy" class="text-xs text-muted mt-2">Checking whether Google Docs is connected to this FicVault account.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-5"><button id="connect-drive" type="button" class="btn-primary rounded-xl px-4 py-2.5 text-sm font-semibold">Connect Google Drive</button><button id="disconnect-drive" type="button" class="btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold hidden">Disconnect</button></div>
       <div class="space-y-4">
-        <div><label for="drive-client-id" class="block text-xs font-semibold text-secondary mb-1.5">Google OAuth 2.0 Web Client ID</label><input id="drive-client-id" class="input-theme font-mono text-sm" type="text" placeholder="000000000000-xxxx.apps.googleusercontent.com"><p class="text-xs text-muted mt-1.5">Created in Google Cloud Console. This value is saved in this browser.</p></div>
+        <label class="flex items-start gap-3 rounded-xl border border-theme p-4 cursor-pointer" style="background:var(--bg-subtle)"><input id="auto-drive-sync" type="checkbox" class="mt-0.5 w-4 h-4 accent-red-800" checked><span><strong class="block text-sm">Automatic Google Docs sync</strong><span class="block text-xs text-muted mt-1">Create a Doc for each work and update it shortly after edits are saved in FicVault.</span></span></label>
         <div class="grid sm:grid-cols-2 gap-4">
-          <div><label for="drive-folder" class="block text-xs font-semibold text-secondary mb-1.5">Google Drive root folder</label><input id="drive-folder" class="input-theme" type="text" maxlength="100" placeholder="FicVault Fanfics"></div>
+          <div><label for="drive-folder" class="block text-xs font-semibold text-secondary mb-1.5">Google Drive folder</label><input id="drive-folder" class="input-theme" type="text" maxlength="100" placeholder="FicVault Fanfics"></div>
           <label class="flex items-center gap-3 rounded-xl p-3 border border-theme text-sm" style="background:var(--bg-subtle)"><input id="drive-subfolders" type="checkbox" class="w-4 h-4 accent-red-800"><span>Create subfolders for ships</span></label>
         </div>
-        <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-xs text-muted">FicVault requests the <code>drive.file</code> scope for its own Docs and folders.</p><button id="save-drive" class="btn-primary rounded-xl px-4 py-2.5 text-sm font-semibold" type="button">Save Drive settings</button></div>
-        <a href="./index.html?drive=1" class="text-sm accent font-semibold hover:underline">Open FicVault Drive sync panel →</a>
+        <p class="text-xs text-muted">FicVault suggests the email used for your FicVault sign-in, then asks Google for the <code>drive.file</code> permission. You approve access once; no OAuth client ID or technical setup is needed in your browser. Google still lets you choose an account, and you can revoke access here at any time.</p>
+        <a href="./index.html?drive=1" class="text-sm accent font-semibold hover:underline">Open archive and Drive status →</a>
       </div>
     </section>
 
@@ -59,6 +64,7 @@
 
     <footer class="py-8 flex flex-wrap justify-between gap-3 text-xs text-muted"><span>FicVault · Writing Studio & Archive</span><div class="flex gap-4"><a class="muted-link underline" href="./terms.html">Terms</a><a class="muted-link underline" href="./privacy.html">Privacy</a><a class="muted-link underline" href="./profile.html">Profile</a><button id="sign-out" class="accent font-semibold">Sign out</button></div></footer>
   </div>
+  <script type="module" src="./drive-client.js"></script>
   <script type="module" src="./settings.js"></script>
 </body>
 </html>

@@ -13,8 +13,6 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Identity Services (graceful fallback if offline or blocked) -->
-  <script src="https://accounts.google.com/gsi/client" async defer onload="window.__gisLoaded = true" onerror="window.__gisError = true"></script>
 
   <style>
     /* =====================================================================
@@ -538,7 +536,7 @@
           </div>
         </div>
 
-        <!-- Right: Toggles, Sync to Docs, Export, Focus Mode -->
+        <!-- Right: Toggles, Google Docs auto-sync status, Export, Focus Mode -->
         <div class="flex items-center gap-1.5 sm:gap-2">
           <div id="editor-header-extras" class="flex items-center gap-1.5 sm:gap-2">
             <!-- Toggle Chapters -->
@@ -553,10 +551,10 @@
               <span class="hidden md:inline">Metadata</span>
             </button>
 
-            <!-- Sync to Google Docs Button -->
-            <button id="editor-sync-btn" onclick="handleSyncCurrentFic()" class="px-3 py-2 rounded-xl bg-accent-soft text-accent font-semibold text-xs flex items-center gap-1.5 hover:opacity-90 transition" title="Sync this fic to Google Docs">
+            <!-- Google Docs automatic-sync status; only clickable when connection or conflict needs attention -->
+            <button id="editor-sync-btn" type="button" onclick="handleSyncCurrentFic()" class="px-3 py-2 rounded-xl bg-accent-soft text-accent font-semibold text-xs flex items-center gap-1.5 transition" title="Google Docs automatic sync status">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.95 6.56-11.45L7.71 3.5zm8.58 0H9.43l6.56 11.5h6.86L16.29 3.5zm-1.43 12.5H8.01l-3.43 5.95h13.71L21.72 16h-6.86z"/></svg>
-              <span id="editor-sync-label" class="hidden sm:inline">Sync to Docs</span>
+              <span id="editor-sync-label" class="hidden sm:inline">Docs not connected</span>
             </button>
 
             <!-- Open in Google Docs Link (shown if synced) -->
@@ -797,27 +795,26 @@
 
   <!-- Google Drive & Docs Integration Modal -->
   <div id="drive-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-[2px]">
-    <div class="modal-pop w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-theme shadow-modal p-6">
+    <div class="modal-pop w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-theme shadow-modal p-6">
       <div class="flex items-start justify-between gap-3 mb-5">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-accent-soft text-accent flex items-center justify-center shrink-0">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.95 6.56-11.45L7.71 3.5zm8.58 0H9.43l6.56 11.5h6.86L16.29 3.5zm-1.43 12.5H8.01l-3.43 5.95h13.71L21.72 16h-6.86z"/></svg>
           </div>
           <div>
-            <h3 class="font-serif-editorial text-xl font-bold text-main">Google Drive &amp; Docs Sync</h3>
-            <p class="text-xs text-muted">Save your fics directly to your Google Drive as editable Google Docs.</p>
+            <h3 class="font-serif-editorial text-xl font-bold text-main">Google Drive &amp; Docs</h3>
+            <p class="text-xs text-muted">Connect once, then FicVault updates your Docs automatically.</p>
           </div>
         </div>
-        <button onclick="closeDriveModal()" class="p-1.5 rounded-lg text-muted hover:text-main hover-surface">✕</button>
+        <button onclick="closeDriveModal()" class="p-1.5 rounded-lg text-muted hover:text-main hover-surface" aria-label="Close">✕</button>
       </div>
 
-      <!-- Connection Status Card -->
       <div id="drive-status-panel" class="rounded-xl border border-theme bg-subtle p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2.5">
           <span id="modal-drive-dot" class="w-3 h-3 rounded-full bg-amber-400"></span>
           <div>
-            <p id="modal-drive-status-text" class="text-sm font-semibold text-main">Not Connected</p>
-            <p id="modal-drive-status-sub" class="text-xs text-muted">Enter your Google OAuth Client ID below to connect.</p>
+            <p id="modal-drive-status-text" class="text-sm font-semibold text-main">Checking Google Drive…</p>
+            <p id="modal-drive-status-sub" class="text-xs text-muted">Your Google authorization is linked to this FicVault account.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -826,69 +823,29 @@
         </div>
       </div>
 
-      <!-- Configuration Inputs -->
       <div class="space-y-4 mb-5">
-        <div>
-          <label class="block text-xs font-semibold text-secondary mb-1.5">Google Cloud OAuth 2.0 Client ID</label>
-          <input id="drive-client-id" type="text" placeholder="1234567890-abcdefg.apps.googleusercontent.com" class="input-theme w-full px-3.5 py-2.5 rounded-xl text-sm font-mono" oninput="saveDriveSettings()" />
-          <p class="text-[11px] text-muted mt-1">Stored in this browser. Uses minimal <code class="px-1 py-0.5 rounded bg-subtle">drive.file</code> scope (only accesses files FicVault creates).</p>
-        </div>
-
+        <label class="flex items-start gap-3 rounded-xl border border-theme bg-surface p-4 cursor-pointer">
+          <input id="drive-auto-sync" type="checkbox" class="mt-0.5 w-4 h-4 accent-[#9A2B3F]" checked onchange="saveDriveSettings()" />
+          <span><strong class="block text-sm text-main">Automatically sync Google Docs</strong><span class="block text-xs text-muted mt-1">Create a Doc for each of your works and update it a few seconds after you save changes in FicVault.</span></span>
+        </label>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
           <div>
-            <label class="block text-xs font-semibold text-secondary mb-1.5">Root Drive Folder Name</label>
-            <input id="drive-folder-name" type="text" placeholder="FicVault Fanfics" class="input-theme w-full px-3.5 py-2.5 rounded-xl text-sm" oninput="saveDriveSettings()" />
+            <label class="block text-xs font-semibold text-secondary mb-1.5" for="drive-folder-name">Google Drive folder</label>
+            <input id="drive-folder-name" type="text" maxlength="100" placeholder="FicVault Fanfics" class="input-theme w-full px-3.5 py-2.5 rounded-xl text-sm" oninput="saveDriveSettings()" />
           </div>
           <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-theme bg-subtle cursor-pointer select-none">
             <input id="drive-ship-subfolders" type="checkbox" class="w-4 h-4 accent-[#9A2B3F] rounded" onchange="saveDriveSettings()" />
-            <span class="text-xs font-medium text-main">Create subfolders by Ship in Google Drive</span>
+            <span class="text-xs font-medium text-main">Create subfolders by Ship</span>
           </label>
         </div>
       </div>
 
-      <!-- Sync All Action + Progress -->
-      <div class="rounded-xl border border-theme p-4 mb-5 bg-surface">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-semibold text-main">Batch Sync Archive</p>
-            <p class="text-xs text-muted">Creates or updates native Google Docs for every fic without duplicating files.</p>
-          </div>
-          <button id="sync-all-btn" onclick="syncAllFicsToDrive()" class="px-4 py-2 rounded-xl border border-theme hover-surface text-xs sm:text-sm font-semibold text-main transition flex items-center gap-1.5">
-            <span>Sync All Fics to Drive</span>
-          </button>
-        </div>
-        <div id="sync-progress-wrap" class="hidden mt-3">
-          <div class="flex items-center justify-between text-xs text-secondary mb-1">
-            <span id="sync-progress-label">Syncing...</span>
-            <span id="sync-progress-pct">0%</span>
-          </div>
-          <div class="w-full h-2 rounded-full bg-subtle overflow-hidden">
-            <div id="sync-progress-bar" class="h-full bg-accent transition-all duration-300" style="width: 0%"></div>
-          </div>
-        </div>
+      <div class="rounded-xl border border-theme bg-surface p-4 text-xs text-secondary leading-relaxed space-y-2">
+        <p><strong class="text-main">One-time permission:</strong> FicVault suggests the email on your FicVault account, and Google asks you to approve access to create and update only the files and folders it creates. You can choose a different Google account if needed; FicVault does not get access to your entire Drive.</p>
+        <p><strong class="text-main">Automatic, one-way sync:</strong> edits made in FicVault are pushed to Google Docs. Edits made directly in Google Docs are not imported into FicVault; if FicVault detects an outside Doc edit, it pauses that document to protect your changes.</p>
+        <p>You can disconnect Google Drive at any time. Your existing Docs remain in your Drive.</p>
       </div>
-
-      <!-- Collapsible 2-Minute Setup Guide -->
-      <details class="rounded-xl border border-theme bg-subtle">
-        <summary class="px-4 py-3 text-xs sm:text-sm font-semibold text-main cursor-pointer select-none flex items-center justify-between">
-          <span>📘 How to set up Google Drive Sync (2 min)</span>
-          <span class="text-xs text-muted font-normal">Click to expand</span>
-        </summary>
-        <div class="px-4 pb-4 pt-1 text-xs text-secondary space-y-2.5 leading-relaxed border-t border-theme">
-          <p>FicVault uses Firebase for account sign-in and private cloud archive sync. Google Drive is a separate, optional connection that you authorize directly from your browser:</p>
-          <ol class="list-decimal pl-5 space-y-1.5">
-            <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener" class="text-accent underline font-medium">Google Cloud Console</a> and create a new project (e.g. <em>My FicVault</em>).</li>
-            <li>Open <strong>APIs &amp; Services → Library</strong>, search for <strong>Google Drive API</strong>, and click <strong>Enable</strong>.</li>
-            <li>Open <strong>Google Auth Platform / OAuth consent screen</strong> → Choose <strong>External</strong>, enter an app name, and add your own Gmail address under <strong>Test users</strong>.</li>
-            <li>Go to <strong>Clients / Credentials → Create Credentials → OAuth client ID</strong> → Application type: <strong>Web application</strong>.</li>
-            <li>Under <strong>Authorized JavaScript origins</strong>, add the URL where you open this file (for example <code class="px-1 py-0.5 rounded bg-surface">http://localhost:8000</code> or your GitHub Pages URL).</li>
-            <li>Copy the generated <strong>Client ID</strong>, paste it above, and click <strong>Connect Google Drive</strong>!</li>
-          </ol>
-          <div class="p-2.5 rounded-lg bg-surface border border-theme text-[11px]">
-            <strong>Note on running locally:</strong> Sandboxed preview windows block Google OAuth popups. To use live Drive sync, download this HTML file and either host it on GitHub Pages or run <code class="px-1 py-0.5 rounded bg-subtle">python3 -m http.server 8000</code> in its folder and visit <code class="px-1 py-0.5 rounded bg-subtle">http://localhost:8000/ficvault.html</code>.
-          </div>
-        </div>
-      </details>
+      <p id="drive-auto-status" class="text-xs text-muted mt-4" aria-live="polite">Google Docs sync is separate from your automatic FicVault cloud archive sync.</p>
     </div>
   </div>
 
@@ -937,12 +894,13 @@
        4. APPLICATION JAVASCRIPT
        =================================================================== -->
   <script type="module" src="./firebase-bridge.js"></script>
+  <script type="module" src="./drive-client.js"></script>
   <script>
     /* =====================================================================
        CONSTANTS & COLOR PALETTES
        ===================================================================== */
     const STORAGE_KEY = 'ficvault_data_v1';
-    const DRIVE_SETTINGS_KEY = 'ficvault_drive_settings_v1';
+    const DRIVE_SETTINGS_KEY = 'ficvault_drive_settings_v2';
     const UI_PREFS_KEY = 'ficvault_ui_prefs_v1';
 
     const SHIP_COLORS = [
@@ -1002,17 +960,14 @@
     };
 
     let driveSettings = {
-      clientId: '',
       rootFolderName: 'FicVault Fanfics',
-      createShipSubfolders: true
+      createShipSubfolders: true,
+      autoSync: true
     };
-
-    let driveAuth = {
-      accessToken: null,
-      expiresAt: 0,
-      tokenClient: null,
-      folderCache: {} // key: `${parentId}::${name}` -> folderId
-    };
+    let driveLinked = false;
+    let driveSyncTimer = null;
+    let driveSyncBusy = false;
+    let driveSyncApplying = false;
 
     let autosaveTimer = null;
     let confirmCallback = null;
@@ -1140,12 +1095,16 @@
       }
 
       try {
-        const rawDrive = localStorage.getItem(DRIVE_SETTINGS_KEY);
+        const uid = window.FicVaultFirebase?.user?.uid || 'guest';
+        const scopedKey = `${DRIVE_SETTINGS_KEY}_${uid}`;
+        const rawDrive = localStorage.getItem(scopedKey) || localStorage.getItem(DRIVE_SETTINGS_KEY) || localStorage.getItem('ficvault_drive_settings_v1');
         if (rawDrive) {
-          driveSettings = { ...driveSettings, ...JSON.parse(rawDrive) };
+          const parsedDrive = JSON.parse(rawDrive);
+          driveSettings = { ...driveSettings, ...parsedDrive };
+          delete driveSettings.clientId;
         }
       } catch (err) {
-        console.warn('Could not load drive settings', err);
+        console.warn('Could not load Drive preferences', err);
       }
 
       try {
@@ -1170,6 +1129,7 @@
       if (window.FicVaultFirebase?.cloudAvailable) {
         window.FicVaultFirebase.scheduleSave(appState);
       }
+      if (!driveSyncApplying) scheduleDriveAutoSync();
     }
 
     function saveUiPrefs() {
@@ -1185,14 +1145,20 @@
     }
 
     function saveDriveSettings() {
-      driveSettings.clientId = document.getElementById('drive-client-id').value.trim();
-      driveSettings.rootFolderName = document.getElementById('drive-folder-name').value.trim() || 'FicVault Fanfics';
-      driveSettings.createShipSubfolders = document.getElementById('drive-ship-subfolders').checked;
+      const folderInput = document.getElementById('drive-folder-name');
+      const subfoldersInput = document.getElementById('drive-ship-subfolders');
+      const autoSyncInput = document.getElementById('drive-auto-sync');
+      if (folderInput) driveSettings.rootFolderName = folderInput.value.trim() || 'FicVault Fanfics';
+      if (subfoldersInput) driveSettings.createShipSubfolders = subfoldersInput.checked;
+      if (autoSyncInput) driveSettings.autoSync = autoSyncInput.checked;
       try {
-        localStorage.setItem(DRIVE_SETTINGS_KEY, JSON.stringify(driveSettings));
+        const uid = window.FicVaultFirebase?.user?.uid || 'guest';
+        localStorage.setItem(`${DRIVE_SETTINGS_KEY}_${uid}`, JSON.stringify(driveSettings));
       } catch (err) {
-        console.warn('Could not persist Drive settings');
+        console.warn('Could not persist Drive preferences');
       }
+      updateDriveUiIndicators();
+      if (driveLinked && driveSettings.autoSync) scheduleDriveAutoSync(900);
     }
 
     /* =====================================================================
@@ -1710,9 +1676,7 @@
                 Write / Edit
               </button>
               <div class="flex items-center gap-1">
-                <button onclick="event.stopPropagation(); handleSyncFicById('${fic.id}')" class="p-1.5 rounded-lg text-secondary hover:text-main hover-surface transition" title="Sync to Google Docs">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.95 6.56-11.45L7.71 3.5zm8.58 0H9.43l6.56 11.5h6.86L16.29 3.5zm-1.43 12.5H8.01l-3.43 5.95h13.71L21.72 16h-6.86z"/></svg>
-                </button>
+                ${fic.driveWebViewLink ? `<a onclick="event.stopPropagation()" href="${escapeHtml(fic.driveWebViewLink)}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover-surface transition" title="Open Google Doc"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.95 6.56-11.45 6.56-11.5z"/></svg></a>` : `<span class="p-1.5 rounded-lg text-muted" title="Google Doc will sync automatically when Drive is connected"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.95 6.56-11.45 6.56-11.5z"/></svg></span>`}
                 <button onclick="event.stopPropagation(); duplicateFic('${fic.id}')" class="p-1.5 rounded-lg text-secondary hover:text-main hover-surface transition" title="Duplicate Fic">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/></svg>
                 </button>
@@ -2547,16 +2511,16 @@
     }
 
     /* =====================================================================
-       REAL GOOGLE DRIVE / GOOGLE DOCS API v3 INTEGRATION
+       GOOGLE DRIVE / GOOGLE DOCS — SECURE BACKEND + AUTOMATIC SYNC
        ===================================================================== */
     function isDriveConnected() {
-      return Boolean(driveAuth.accessToken && Date.now() < driveAuth.expiresAt);
+      return Boolean(driveLinked);
     }
 
     function openDriveModal() {
-      document.getElementById('drive-client-id').value = driveSettings.clientId || '';
       document.getElementById('drive-folder-name').value = driveSettings.rootFolderName || 'FicVault Fanfics';
       document.getElementById('drive-ship-subfolders').checked = Boolean(driveSettings.createShipSubfolders);
+      document.getElementById('drive-auto-sync').checked = driveSettings.autoSync !== false;
       updateDriveUiIndicators();
       document.getElementById('drive-modal').classList.remove('hidden');
     }
@@ -2567,25 +2531,9 @@
 
     function updateDriveUiIndicators() {
       const connected = isDriveConnected();
-
-      // Sidebar card
       const sideDot = document.getElementById('sidebar-drive-dot');
       const sideBadge = document.getElementById('sidebar-drive-badge');
       const sideSub = document.getElementById('sidebar-drive-subtext');
-
-      if (connected) {
-        sideDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
-        sideBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
-        sideBadge.textContent = 'Connected';
-        sideSub.textContent = `Folder: "${driveSettings.rootFolderName}"`;
-      } else {
-        sideDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0';
-        sideBadge.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-subtle text-secondary';
-        sideBadge.textContent = 'Not Connected';
-        sideSub.textContent = 'Save your fics directly as formatted Google Docs.';
-      }
-
-      // Modal status panel
       const modalDot = document.getElementById('modal-drive-dot');
       const modalText = document.getElementById('modal-drive-status-text');
       const modalSub = document.getElementById('modal-drive-status-sub');
@@ -2593,357 +2541,236 @@
       const disconnectBtn = document.getElementById('drive-disconnect-btn');
 
       if (connected) {
-        modalDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
-        modalText.textContent = 'Connected to Google Drive';
-        modalSub.textContent = `Ready to save native Google Docs into "${driveSettings.rootFolderName}".`;
-        connectBtn.classList.add('hidden');
-        disconnectBtn.classList.remove('hidden');
+        if (sideDot) sideDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0';
+        if (sideBadge) {
+          sideBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
+          sideBadge.textContent = 'Connected';
+        }
+        if (sideSub) sideSub.textContent = driveSettings.autoSync ? 'Google Docs update automatically after you save.' : 'Google Drive is connected; automatic Docs sync is paused.';
+        if (modalDot) modalDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+        if (modalText) modalText.textContent = 'Google Drive is connected';
+        if (modalSub) modalSub.textContent = driveSettings.autoSync ? `Docs will update automatically in "${driveSettings.rootFolderName}".` : 'Connection is ready. Turn on automatic sync to update Docs after edits.';
+        connectBtn?.classList.add('hidden');
+        disconnectBtn?.classList.remove('hidden');
       } else {
-        modalDot.className = 'w-3 h-3 rounded-full bg-amber-400';
-        modalText.textContent = 'Not Connected';
-        modalSub.textContent = driveSettings.clientId
-          ? 'Click "Connect Google Drive" to authorize access.'
-          : 'Enter your Google OAuth Client ID below to connect.';
-        connectBtn.classList.remove('hidden');
-        disconnectBtn.classList.add('hidden');
+        if (sideDot) sideDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0';
+        if (sideBadge) {
+          sideBadge.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-subtle text-secondary';
+          sideBadge.textContent = 'Not Connected';
+        }
+        if (sideSub) sideSub.textContent = 'Connect once to create and update Google Docs automatically.';
+        if (modalDot) modalDot.className = 'w-3 h-3 rounded-full bg-amber-400';
+        if (modalText) modalText.textContent = 'Google Drive is not connected';
+        if (modalSub) modalSub.textContent = 'Connect the Google account where you want FicVault to store your Docs.';
+        connectBtn?.classList.remove('hidden');
+        disconnectBtn?.classList.add('hidden');
       }
-
       updateEditorDriveButtons();
     }
 
     function updateEditorDriveButtons() {
       const fic = getActiveFic();
       const openLink = document.getElementById('editor-open-doc-link');
+      const syncButton = document.getElementById('editor-sync-btn');
       const syncLabel = document.getElementById('editor-sync-label');
-      if (!fic || !openLink) return;
+      if (!fic || !openLink || !syncButton || !syncLabel) return;
 
       if (fic.driveFileId) {
         openLink.href = fic.driveWebViewLink || `https://docs.google.com/document/d/${fic.driveFileId}/edit`;
         openLink.classList.remove('hidden');
         openLink.classList.add('inline-flex');
-        syncLabel.textContent = 'Update Doc';
       } else {
         openLink.classList.add('hidden');
         openLink.classList.remove('inline-flex');
-        syncLabel.textContent = 'Sync to Docs';
+      }
+
+      if (!driveLinked) {
+        syncLabel.textContent = 'Connect Drive';
+        syncButton.disabled = false;
+        syncButton.title = 'Connect Google Drive to enable automatic Docs sync';
+        syncButton.classList.remove('opacity-60', 'cursor-default');
+      } else if (fic.driveSyncConflict) {
+        syncLabel.textContent = 'Resolve Doc';
+        syncButton.disabled = false;
+        syncButton.title = 'Replace the Google Doc with the current FicVault version after reviewing external edits';
+        syncButton.classList.remove('opacity-60', 'cursor-default');
+      } else {
+        syncLabel.textContent = fic.driveFileId ? 'Docs auto-sync on' : (driveSettings.autoSync ? 'Docs sync pending' : 'Docs auto-sync off');
+        syncButton.disabled = true;
+        syncButton.title = 'Google Docs updates automatically after you save in FicVault';
+        syncButton.classList.add('opacity-60', 'cursor-default');
       }
     }
 
-    function connectGoogleDrive(onConnectedCallback = null) {
-      saveDriveSettings();
-      if (!driveSettings.clientId) {
-        showToast('Please enter your Google OAuth 2.0 Client ID first.', 'error');
-        openDriveModal();
-        return;
-      }
-
-      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        showToast('Google Sign-In library is unavailable (offline or blocked by preview sandbox). Download the HTML file to run via localhost.', 'error');
-        return;
-      }
-
+    async function refreshDriveConnectionStatus(queueInitialSync = true) {
+      if (!window.FicVaultDrive?.getStatus) return;
       try {
-        driveAuth.tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: driveSettings.clientId,
-          scope: 'https://www.googleapis.com/auth/drive.file',
-          callback: (tokenResponse) => {
-            if (tokenResponse.error) {
-              showToast(`Google Auth error: ${tokenResponse.error}`, 'error');
-              return;
+        const status = await window.FicVaultDrive.getStatus();
+        driveLinked = Boolean(status.connected);
+        // Retry transient failures after a fresh app session. Conflicts are kept
+        // paused until the user explicitly reviews and resolves them.
+        if (driveLinked && queueInitialSync) {
+          let clearedTransientFailures = false;
+          appState.fics.forEach(fic => {
+            if (!fic.driveSyncConflict && fic.driveSyncFailedForUpdatedAt != null) {
+              fic.driveSyncFailedForUpdatedAt = null;
+              clearedTransientFailures = true;
             }
-            driveAuth.accessToken = tokenResponse.access_token;
-            // Subtract 60s safety margin from expires_in
-            driveAuth.expiresAt = Date.now() + ((tokenResponse.expires_in || 3600) - 60) * 1000;
-            driveAuth.folderCache = {};
-            updateDriveUiIndicators();
-            showToast('Connected to Google Drive!', 'success');
-            if (typeof onConnectedCallback === 'function') {
-              onConnectedCallback();
-            }
+          });
+          if (clearedTransientFailures) {
+            driveSyncApplying = true;
+            saveAppData();
+            driveSyncApplying = false;
           }
-        });
-        driveAuth.tokenClient.requestAccessToken({ prompt: 'consent' });
-      } catch (err) {
-        console.error('GIS init error:', err);
-        showToast('Could not start Google OAuth popup. Make sure you are running on an authorized origin.', 'error');
-      }
-    }
-
-    function disconnectGoogleDrive() {
-      if (driveAuth.accessToken && typeof google !== 'undefined' && google.accounts?.oauth2) {
-        try {
-          google.accounts.oauth2.revoke(driveAuth.accessToken, () => {});
-        } catch (e) { /* ignore */ }
-      }
-      driveAuth.accessToken = null;
-      driveAuth.expiresAt = 0;
-      driveAuth.folderCache = {};
-      updateDriveUiIndicators();
-      showToast('Disconnected from Google Drive.', 'info');
-    }
-
-    /**
-     * Escapes single quotes for Drive API v3 query strings.
-     */
-    function escapeDriveQuery(str) {
-      return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    }
-
-    /**
-     * Finds or creates a folder in Google Drive using Drive API v3.
-     */
-    async function findOrCreateDriveFolder(folderName, parentId = null) {
-      const cacheKey = `${parentId || 'root'}::${folderName}`;
-      if (driveAuth.folderCache[cacheKey]) {
-        return driveAuth.folderCache[cacheKey];
-      }
-
-      let q = `mimeType='application/vnd.google-apps.folder' and name='${escapeDriveQuery(folderName)}' and trashed=false`;
-      if (parentId) {
-        q += ` and '${parentId}' in parents`;
-      }
-
-      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`;
-      const searchRes = await fetch(searchUrl, {
-        headers: { Authorization: `Bearer ${driveAuth.accessToken}` }
-      });
-
-      if (searchRes.status === 401) {
-        driveAuth.accessToken = null;
-        driveAuth.expiresAt = 0;
+        }
         updateDriveUiIndicators();
-        throw new Error('Google Drive session expired. Please reconnect.');
+        if (driveLinked && driveSettings.autoSync && queueInitialSync) scheduleDriveAutoSync(1200);
+      } catch (error) {
+        console.warn('Could not check Google Drive connection:', error);
+        driveLinked = false;
+        updateDriveUiIndicators();
       }
-
-      if (!searchRes.ok) {
-        const errBody = await searchRes.text();
-        throw new Error(`Drive search failed (${searchRes.status}): ${errBody}`);
-      }
-
-      const searchData = await searchRes.json();
-      if (searchData.files && searchData.files.length > 0) {
-        const foundId = searchData.files[0].id;
-        driveAuth.folderCache[cacheKey] = foundId;
-        return foundId;
-      }
-
-      // Create the folder
-      const metadata = {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder'
-      };
-      if (parentId) metadata.parents = [parentId];
-
-      const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${driveAuth.accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(metadata)
-      });
-
-      if (!createRes.ok) {
-        throw new Error(`Could not create Drive folder "${folderName}" (${createRes.status})`);
-      }
-
-      const created = await createRes.json();
-      driveAuth.folderCache[cacheKey] = created.id;
-      return created.id;
     }
 
-    /**
-     * Builds a multipart/related payload to upload HTML as a native Google Doc.
-     */
-    function buildMultipartBody(metadata, htmlContent, boundary) {
-      return [
-        `--${boundary}`,
-        'Content-Type: application/json; charset=UTF-8',
-        '',
-        JSON.stringify(metadata),
-        `--${boundary}`,
-        'Content-Type: text/html; charset=UTF-8',
-        '',
-        htmlContent,
-        `--${boundary}--`
-      ].join('\r\n');
-    }
-
-    /**
-     * Syncs a single fic to Google Drive as a native Google Doc (creates or updates in place).
-     */
-    async function syncFicToDrive(fic) {
-      if (!isDriveConnected()) {
-        throw new Error('Not connected to Google Drive.');
-      }
-
-      const rootName = driveSettings.rootFolderName || 'FicVault Fanfics';
-      let targetFolderId = await findOrCreateDriveFolder(rootName);
-
-      if (driveSettings.createShipSubfolders && fic.shipIds && fic.shipIds.length > 0) {
-        const primaryShip = getShipById(fic.shipIds[0]);
-        if (primaryShip && primaryShip.name) {
-          targetFolderId = await findOrCreateDriveFolder(primaryShip.name, targetFolderId);
-        }
-      }
-
-      const docTitle = fic.title && fic.title.trim() ? fic.title.trim() : 'Untitled Work';
-      const htmlContent = buildFormattedDocumentHtml(fic, false);
-      const boundary = 'ficvault_multipart_' + Date.now();
-
-      // Update existing Google Doc if we have a stored driveFileId
-      if (fic.driveFileId) {
-        const updateMeta = {
-          name: docTitle,
-          mimeType: 'application/vnd.google-apps.document'
-        };
-        const patchUrl = `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fic.driveFileId)}?uploadType=multipart&fields=id,webViewLink`;
-        const patchRes = await fetch(patchUrl, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${driveAuth.accessToken}`,
-            'Content-Type': `multipart/related; boundary=${boundary}`
-          },
-          body: buildMultipartBody(updateMeta, htmlContent, boundary)
-        });
-
-        if (patchRes.ok) {
-          const data = await patchRes.json();
-          fic.driveFileId = data.id;
-          fic.driveWebViewLink = data.webViewLink || `https://docs.google.com/document/d/${data.id}/edit`;
-          fic.lastSyncedAt = Date.now();
-          saveAppData();
-          return data;
-        }
-
-        // If 404 (file was deleted in Drive), fall through and create a fresh file
-        if (patchRes.status !== 404) {
-          if (patchRes.status === 401) {
-            driveAuth.accessToken = null;
-            driveAuth.expiresAt = 0;
-            updateDriveUiIndicators();
-            throw new Error('Google Drive session expired. Please reconnect.');
-          }
-          throw new Error(`Failed to update Google Doc (${patchRes.status})`);
-        }
-      }
-
-      // Create new native Google Doc
-      const createMeta = {
-        name: docTitle,
-        mimeType: 'application/vnd.google-apps.document',
-        parents: [targetFolderId]
-      };
-      const createUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink';
-      const createRes = await fetch(createUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${driveAuth.accessToken}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
-        },
-        body: buildMultipartBody(createMeta, htmlContent, boundary)
-      });
-
-      if (!createRes.ok) {
-        throw new Error(`Failed to create Google Doc (${createRes.status})`);
-      }
-
-      const created = await createRes.json();
-      fic.driveFileId = created.id;
-      fic.driveWebViewLink = created.webViewLink || `https://docs.google.com/document/d/${created.id}/edit`;
-      fic.lastSyncedAt = Date.now();
-      saveAppData();
-      return created;
-    }
-
-    async function handleSyncFicById(ficId) {
-      const fic = appState.fics.find(f => f.id === ficId);
-      if (!fic) return;
-
-      if (!isDriveConnected()) {
-        if (driveSettings.clientId) {
-          connectGoogleDrive(() => handleSyncFicById(ficId));
-        } else {
-          openDriveModal();
-          showToast('Configure your Google Drive Client ID to sync to Docs.', 'info');
-        }
+    async function connectGoogleDrive() {
+      saveDriveSettings();
+      if (!window.FicVaultDrive?.connect) {
+        showToast('The Google Drive integration did not load. Refresh the page and try again.', 'error');
         return;
       }
-
-      showToast(`Syncing "${fic.title || 'Untitled'}" to Google Docs...`, 'info');
       try {
-        await syncFicToDrive(fic);
-        renderLibrary();
+        await window.FicVaultDrive.connect();
+      } catch (error) {
+        console.error('Could not start Google Drive authorization:', error);
+        showToast(error.message || 'Could not connect Google Drive.', 'error');
+      }
+    }
+
+    async function disconnectGoogleDrive() {
+      try {
+        await window.FicVaultDrive.disconnect();
+        driveLinked = false;
+        updateDriveUiIndicators();
+        showToast('Google Drive disconnected. Existing Docs remain in your Drive.', 'info');
+      } catch (error) {
+        console.error('Google Drive disconnect failed:', error);
+        showToast(error.message || 'Could not disconnect Google Drive.', 'error');
+      }
+    }
+
+    function scheduleDriveAutoSync(delay = 2600) {
+      if (!driveLinked || !driveSettings.autoSync || driveSyncApplying) return;
+      clearTimeout(driveSyncTimer);
+      driveSyncTimer = setTimeout(runDriveAutoSync, delay);
+    }
+
+    function getDriveDirtyFics() {
+      return appState.fics.filter(fic => {
+        if (fic.isSample || fic.driveSyncConflict) return false;
+        const currentVersion = Number(fic.updatedAt || 0);
+        const syncedVersion = Number(fic.driveSyncedUpdatedAt || 0);
+        const failedVersion = Number(fic.driveSyncFailedForUpdatedAt || 0);
+        return currentVersion > syncedVersion && currentVersion !== failedVersion;
+      });
+    }
+
+    async function syncFicToDrive(fic, { forceOverwrite = false } = {}) {
+      if (!isDriveConnected()) throw new Error('Connect Google Drive to enable Docs sync.');
+      const versionAtStart = Number(fic.updatedAt || Date.now());
+      const primaryShip = fic.shipIds?.length ? getShipById(fic.shipIds[0]) : null;
+      const htmlContent = buildFormattedDocumentHtml(fic, false);
+      const result = await window.FicVaultDrive.syncFic({
+        fic: {
+          id: fic.id,
+          title: fic.title || 'Untitled Work',
+          driveFileId: fic.driveFileId || '',
+          driveModifiedTime: fic.driveModifiedTime || ''
+        },
+        htmlContent,
+        rootFolderName: driveSettings.rootFolderName || 'FicVault Fanfics',
+        createShipSubfolders: driveSettings.createShipSubfolders !== false,
+        shipFolderName: primaryShip?.name || '',
+        forceOverwrite
+      });
+
+      driveSyncApplying = true;
+      fic.driveFileId = result.fileId;
+      fic.driveWebViewLink = result.webViewLink;
+      fic.driveModifiedTime = result.modifiedTime || '';
+      fic.lastSyncedAt = Date.now();
+      fic.driveSyncedUpdatedAt = versionAtStart;
+      fic.driveSyncConflict = false;
+      fic.driveSyncFailedForUpdatedAt = null;
+      saveAppData();
+      driveSyncApplying = false;
+      updateEditorDriveButtons();
+      return result;
+    }
+
+    async function runDriveAutoSync() {
+      if (driveSyncBusy || !driveLinked || !driveSettings.autoSync) return;
+      driveSyncBusy = true;
+      const status = document.getElementById('drive-auto-status');
+      try {
+        let dirty = getDriveDirtyFics();
+        while (dirty.length && driveLinked && driveSettings.autoSync) {
+          for (const fic of dirty) {
+            if (!driveLinked || !driveSettings.autoSync) break;
+            const expectedVersion = Number(fic.updatedAt || 0);
+            try {
+              if (status) status.textContent = `Updating Google Doc: ${fic.title || 'Untitled Work'}…`;
+              await syncFicToDrive(fic);
+            } catch (error) {
+              console.error(`Automatic Google Docs sync failed for "${fic.title}":`, error);
+              driveSyncApplying = true;
+              if (String(error.code || '').includes('failed-precondition') || /edited outside FicVault/i.test(error.message || '')) {
+                fic.driveSyncConflict = true;
+                fic.driveSyncFailedForUpdatedAt = expectedVersion;
+                if (status) status.textContent = `Sync paused for "${fic.title || 'Untitled Work'}" because its Google Doc has outside edits.`;
+                showToast(`Auto-sync paused for "${fic.title || 'Untitled Work'}" to protect changes made in Google Docs.`, 'info');
+              } else {
+                fic.driveSyncFailedForUpdatedAt = expectedVersion;
+                if (status) status.textContent = 'A Google Doc could not be updated. FicVault still saved your archive; it will retry after another edit or when you reconnect.';
+                showToast(`Could not auto-sync "${fic.title || 'Untitled Work'}" to Google Docs.`, 'error');
+              }
+              saveAppData();
+              driveSyncApplying = false;
+            }
+          }
+          dirty = getDriveDirtyFics();
+        }
+        if (status && !getDriveDirtyFics().length) {
+          status.textContent = driveSettings.autoSync ? 'All eligible Google Docs are up to date.' : 'Automatic Google Docs sync is paused.';
+        }
+      } finally {
+        driveSyncApplying = false;
+        driveSyncBusy = false;
         updateEditorDriveButtons();
-        showToast(`Synced "${fic.title || 'Untitled'}" to Google Docs!`, 'success');
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'Sync to Google Docs failed.', 'error');
       }
     }
 
     async function handleSyncCurrentFic() {
-      saveCurrentProseImmediate();
-      if (!uiState.activeFicId) return;
-      const btn = document.getElementById('editor-sync-btn');
-      btn.disabled = true;
-      btn.classList.add('opacity-60');
-      await handleSyncFicById(uiState.activeFicId);
-      btn.disabled = false;
-      btn.classList.remove('opacity-60');
-    }
-
-    async function syncAllFicsToDrive() {
-      if (!isDriveConnected()) {
-        showToast('Connect Google Drive first to sync your archive.', 'error');
+      const fic = getActiveFic();
+      if (!fic) return;
+      if (!driveLinked) {
+        openDriveModal();
         return;
       }
-      if (appState.fics.length === 0) {
-        showToast('No fics to sync.', 'info');
-        return;
+      if (!fic.driveSyncConflict) return;
+      const confirmed = window.confirm('Replace the Google Doc with the current FicVault version? Any edits made directly in Google Docs that are not in FicVault will be overwritten.');
+      if (!confirmed) return;
+      try {
+        await syncFicToDrive(fic, { forceOverwrite: true });
+        showToast('Google Doc replaced with the FicVault version.', 'success');
+      } catch (error) {
+        showToast(error.message || 'Could not replace the Google Doc.', 'error');
       }
-
-      const wrap = document.getElementById('sync-progress-wrap');
-      const label = document.getElementById('sync-progress-label');
-      const pctEl = document.getElementById('sync-progress-pct');
-      const bar = document.getElementById('sync-progress-bar');
-      const btn = document.getElementById('sync-all-btn');
-
-      wrap.classList.remove('hidden');
-      btn.disabled = true;
-      btn.classList.add('opacity-60');
-
-      let synced = 0;
-      let failed = 0;
-      const total = appState.fics.length;
-
-      for (let i = 0; i < total; i++) {
-        const fic = appState.fics[i];
-        label.textContent = `Syncing ${i + 1} of ${total}: "${fic.title || 'Untitled'}"...`;
-        const pct = Math.round((i / total) * 100);
-        pctEl.textContent = `${pct}%`;
-        bar.style.width = `${pct}%`;
-
-        try {
-          await syncFicToDrive(fic);
-          synced++;
-        } catch (err) {
-          console.error(`Failed to sync ${fic.title}:`, err);
-          failed++;
-        }
-      }
-
-      pctEl.textContent = '100%';
-      bar.style.width = '100%';
-      label.textContent = failed === 0
-        ? `Done! Synced all ${synced} works to Google Docs.`
-        : `Finished: ${synced} synced, ${failed} failed.`;
-
-      btn.disabled = false;
-      btn.classList.remove('opacity-60');
-      renderLibrary();
-      showToast(failed === 0 ? `Synced ${synced} fics to Google Docs!` : `Synced ${synced} fics (${failed} failed).`, failed === 0 ? 'success' : 'error');
     }
+
+    window.addEventListener('online', () => {
+      appState.fics.forEach(fic => { fic.driveSyncFailedForUpdatedAt = null; });
+      scheduleDriveAutoSync(800);
+    });
 
     /* =====================================================================
        GLOBAL EVENT LISTENERS & BOOTSTRAP
@@ -2998,10 +2825,21 @@
         }
 
         const params = new URLSearchParams(location.search);
+        await refreshDriveConnectionStatus(true);
         if (params.get('drive') === '1') openDriveModal();
+        if (params.get('drive') === 'connected') {
+          showToast('Google Drive connected. Your eligible works will begin syncing automatically.', 'success');
+          history.replaceState({}, '', location.pathname);
+        } else if (params.get('drive') === 'denied') {
+          showToast('Google Drive permission was not granted. Your FicVault archive is unaffected.', 'info');
+          history.replaceState({}, '', location.pathname);
+        } else if (params.get('drive') === 'error') {
+          showToast('Google Drive could not be connected. Please try again from Drive Settings.', 'error');
+          history.replaceState({}, '', location.pathname);
+        }
         if (params.get('sync') === '1') {
           if (window.FicVaultFirebase?.syncNow) {
-            window.FicVaultFirebase.syncNow(appState).then(() => showToast('Archive sync requested.', 'success'));
+            window.FicVaultFirebase.syncNow(appState).then(() => showToast('FicVault cloud archive is up to date.', 'success'));
           }
         }
       } catch (error) {

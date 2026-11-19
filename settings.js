@@ -2,16 +2,21 @@ import {
   auth, db, onAuthStateChanged, sendPasswordResetEmail, signOut,
   collection, getDocs
 } from './firebase.js';
+import {
+  getGoogleDriveStatus, beginGoogleDriveAuthorization, disconnectGoogleDrive
+} from './drive-client.js';
 
 const UI_PREFS_KEY = 'ficvault_ui_prefs_v1';
-const DRIVE_SETTINGS_KEY = 'ficvault_drive_settings_v1';
+const DRIVE_SETTINGS_KEY = 'ficvault_drive_settings_v2';
 const $ = id => document.getElementById(id);
 let currentUser = null;
 let prefs = { theme: 'light', viewMode: 'grid', sortBy: 'updated' };
+let drivePrefs = { rootFolderName: 'FicVault Fanfics', createShipSubfolders: true, autoSync: true };
 function showMessage(text, success = true) {
   const el = $('settings-message'); el.textContent = text;
   el.className = `rounded-xl p-3 text-sm mb-5 ${success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`;
 }
+function drivePrefsKey() { return `${DRIVE_SETTINGS_KEY}_${currentUser?.uid || 'guest'}`; }
 function loadPrefs() {
   try { prefs = { ...prefs, ...JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}') }; } catch {}
   document.documentElement.setAttribute('data-theme', prefs.theme || 'light');
@@ -29,11 +34,23 @@ function savePrefs() {
   loadPrefs();
 }
 function readDriveSettings() {
-  let drive = {};
-  try { drive = JSON.parse(localStorage.getItem(DRIVE_SETTINGS_KEY) || '{}'); } catch {}
-  $('drive-client-id').value = drive.clientId || '';
-  $('drive-folder').value = drive.rootFolderName || 'FicVault Fanfics';
-  $('drive-subfolders').checked = drive.createShipSubfolders !== false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(drivePrefsKey()) || localStorage.getItem(DRIVE_SETTINGS_KEY) || localStorage.getItem('ficvault_drive_settings_v1') || '{}');
+    drivePrefs = { ...drivePrefs, ...saved };
+    delete drivePrefs.clientId;
+  } catch {}
+  $('drive-folder').value = drivePrefs.rootFolderName || 'FicVault Fanfics';
+  $('drive-subfolders').checked = drivePrefs.createShipSubfolders !== false;
+  $('auto-drive-sync').checked = drivePrefs.autoSync !== false;
+}
+function saveDriveSettings() {
+  drivePrefs = {
+    rootFolderName: $('drive-folder').value.trim() || 'FicVault Fanfics',
+    createShipSubfolders: $('drive-subfolders').checked,
+    autoSync: $('auto-drive-sync').checked
+  };
+  localStorage.setItem(drivePrefsKey(), JSON.stringify(drivePrefs));
+  showMessage('Google Docs preferences saved.');
 }
 function downloadBackup() {
   if (!currentUser) return;
@@ -47,6 +64,22 @@ function downloadBackup() {
   const a = document.createElement('a'); a.href = url; a.download = `ficvault-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
   URL.revokeObjectURL(url);
   showMessage('Your browser archive backup has been downloaded.');
+}
+async function refreshDriveStatus() {
+  try {
+    const status = await getGoogleDriveStatus();
+    const connected = Boolean(status.connected);
+    $('drive-status-dot').style.background = connected ? '#10b981' : '#d6a23a';
+    $('drive-status-title').textContent = connected ? 'Google Drive is connected' : 'Google Drive is not connected';
+    $('drive-status-copy').textContent = connected
+      ? (drivePrefs.autoSync ? 'Your Docs will update automatically after you save changes in FicVault.' : 'Google Drive is connected, but automatic Docs sync is paused.')
+      : 'Connect the Google account where you want FicVault to create and update your documents.';
+    $('connect-drive').classList.toggle('hidden', connected);
+    $('disconnect-drive').classList.toggle('hidden', !connected);
+  } catch (error) {
+    $('drive-status-title').textContent = 'Could not check Google Drive';
+    $('drive-status-copy').textContent = error.message || 'Check that the Cloud Functions have been deployed.';
+  }
 }
 
 onAuthStateChanged(auth, async user => {
@@ -62,19 +95,25 @@ onAuthStateChanged(auth, async user => {
   } catch (error) {
     $('cloud-count').textContent = 'Could not read the cloud archive. Check your Firestore setup and security rules.';
   }
+  await refreshDriveStatus();
 });
 
 document.querySelectorAll('[data-theme-choice]').forEach(btn => btn.addEventListener('click', () => { prefs.theme = btn.dataset.themeChoice; savePrefs(); }));
 $('view-mode').addEventListener('change', e => { prefs.viewMode = e.target.value; savePrefs(); });
 $('sort-mode').addEventListener('change', e => { prefs.sortBy = e.target.value; savePrefs(); });
-$('save-drive').addEventListener('click', () => {
-  const settings = {
-    clientId: $('drive-client-id').value.trim(),
-    rootFolderName: $('drive-folder').value.trim() || 'FicVault Fanfics',
-    createShipSubfolders: $('drive-subfolders').checked
-  };
-  localStorage.setItem(DRIVE_SETTINGS_KEY, JSON.stringify(settings));
-  showMessage('Google Drive settings saved in this browser.');
+$('drive-folder').addEventListener('change', saveDriveSettings);
+$('drive-subfolders').addEventListener('change', saveDriveSettings);
+$('auto-drive-sync').addEventListener('change', saveDriveSettings);
+$('connect-drive').addEventListener('click', async () => {
+  try { await beginGoogleDriveAuthorization(); }
+  catch (error) { showMessage(error.message || 'Could not connect Google Drive.', false); }
+});
+$('disconnect-drive').addEventListener('click', async () => {
+  try {
+    await disconnectGoogleDrive();
+    await refreshDriveStatus();
+    showMessage('Google Drive disconnected. Existing Google Docs remain in your Drive.');
+  } catch (error) { showMessage(error.message || 'Could not disconnect Google Drive.', false); }
 });
 $('download-backup').addEventListener('click', downloadBackup);
 $('password-reset').addEventListener('click', async () => {
