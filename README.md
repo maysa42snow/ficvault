@@ -128,6 +128,49 @@ The Cloud Functions backend is deployed separately with Firebase CLI; GitHub Pag
 - Existing Google Docs remain in the user's Drive after disconnecting or deleting a FicVault entry.
 - FicVault cloud archive sync to Firestore is independent and remains automatic even when Google Drive is not connected.
 
+## Troubleshooting: Google Drive shows `internal [0]`
+
+This Firebase Functions SDK message means the browser did not receive an HTTP response from the callable request. It is not, by itself, a Google permission-denied response. It can occur when a request is blocked/aborted, the function endpoint is unavailable, or a server failure prevents a valid CORS response.
+
+1. In the project root, confirm the selected Firebase project:
+
+   ```bash
+   firebase use
+   ```
+
+   It must show `my-ficvault`.
+
+2. Check that these functions are deployed in `us-central1`:
+   - `startGoogleDriveAuthorization` (callable)
+   - `getGoogleDriveStatus` (callable)
+   - `googleDriveOAuthCallback` (HTTP)
+
+   In the Firebase Console, open **Build → Functions**. The function region must match `us-central1`, which is also configured in `firebase.js`.
+
+3. Read the authorization function logs:
+
+   ```bash
+   firebase functions:log --only startGoogleDriveAuthorization
+   ```
+
+   If the function was never deployed, deploy it from the project root:
+
+   ```bash
+   firebase deploy --only functions:startGoogleDriveAuthorization
+   ```
+
+   Or deploy all functions:
+
+   ```bash
+   firebase deploy --only functions
+   ```
+
+4. Confirm that the Firebase secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` exist and are bound to `startGoogleDriveAuthorization`. Confirm that the `FICVAULT_APP_URL` parameter is set to the public GitHub Pages URL (without `/index.html` and without a trailing slash). If you change any secret value, redeploy the functions that use it.
+
+5. If the function exists but the log shows no invocation at the time of the attempt, open browser Developer Tools → **Network**, click Connect Google Drive again, and inspect the request to `startGoogleDriveAuthorization`. A status of `(blocked)`, `(failed)`, or `0` points to a browser/network/CORS or endpoint-reachability problem. Check the Console for the corresponding network error.
+
+The Drive client now reports this condition in plain language and logs the Firebase error code/details in the browser console. Do not publish OAuth secrets or the token encryption key in GitHub, screenshots, or support messages.
+
 ## 6. Existing Google Docs from the previous browser-token integration
 
 Old stories may contain a `driveFileId` from the previous client-side OAuth connection. The new backend will attempt to update that ID. Google may not allow the new OAuth client to access files created under a different OAuth app identity; if that happens, the backend creates a new Doc and leaves the old file untouched. Check your Drive folder after the first migration and remove old copies manually only after confirming the new Docs contain the right content.
