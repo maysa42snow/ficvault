@@ -2636,18 +2636,38 @@
     }
 
     async function connectGoogleDrive() {
-      saveDriveSettings();
-      if (!window.FicVaultDrive?.connect) {
-        showToast('The Google Drive integration did not load. Refresh the page and try again.', 'error');
-        return;
-      }
-      try {
-        await window.FicVaultDrive.connect();
-      } catch (error) {
-        console.error('Could not start Google Drive authorization:', error);
-        showToast(error.message || 'Could not connect Google Drive.', 'error');
-      }
+  saveDriveSettings();
+
+  if (!window.FicVaultDrive?.connect) {
+    showToast(
+      'The Google Drive integration did not load. Refresh the page and try again.',
+      'error'
+    );
+    return;
+  }
+
+  try {
+    await window.FicVaultDrive.connect();
+
+    // Update FicVault's connection state after Google authorization.
+    await refreshDriveConnectionStatus(true);
+
+    if (driveLinked) {
+      showToast(
+        'Google Drive connected successfully!',
+        'success'
+      );
+    } else {
+      showToast(
+        'Google authorization completed, but FicVault could not confirm the connection.',
+        'error'
+      );
     }
+  } catch (error) {
+    console.error('Could not connect Google Drive:', error);
+    showToast(error.message || 'Could not connect Google Drive.', 'error');
+  }
+}
 
     async function disconnectGoogleDrive() {
       try {
