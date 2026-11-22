@@ -1,203 +1,78 @@
 # FicVault — GitHub Pages + Firebase + automatic Google Docs sync
 
-This folder contains the writing studio, Firebase account pages, Firestore archive sync, and a secure Cloud Functions backend for automatically updating Google Docs.
+This version keeps FicVault static on GitHub Pages, uses Firebase for account/profile/archive data, and uses the Google Drive API directly from the browser for Google Docs sync. **Firebase Cloud Functions are not required.**
 
 ## What's included
 
-- `index.html` — original FicVault writing studio with per-account archive storage and automatic Google Docs updates after saves.
+- `index.html` — FicVault writing studio with per-account archive storage and automatic Google Docs updates after saves.
 - `login.html`, `profile.html`, `settings.html` — authentication, profile, and account settings.
-- `firebase.js` — Firebase web configuration and SDK setup.
-- `firebase-bridge.js` — authenticated per-user archive loading and automatic Firestore sync.
-- `drive-client.js` — browser wrapper for the secure Drive Cloud Functions.
-- `functions/index.js` — server-side OAuth authorization-code callback, encrypted refresh-token storage, token renewal, document create/update, and disconnect handling.
-- `firestore.rules` — per-user archive rules and explicit denial of client access to integration tokens and OAuth state.
-- `privacy.html`, `terms.html` — updated policy language for server-assisted OAuth and one-way automatic Docs sync.
+- `firebase.js` — Firebase web configuration.
+- `firebase-bridge.js` — authenticated per-user archive loading and Firestore sync.
+- `drive-client.js` — Google Identity Services + Google Drive API integration.
+- `firestore.rules` — per-user archive rules.
+- `privacy.html`, `terms.html` — policy pages.
+- `GOOGLE_DRIVE_SETUP.md` — exact Google Cloud setup steps.
 
-## How Google Docs sync works
+## Google Drive / Google Docs architecture
 
-1. A signed-in user chooses **Connect Google Drive** once and approves the Google `drive.file` permission.
-2. Google sends an authorization code to a Firebase Cloud Function. The function exchanges it for offline credentials.
-3. The Google refresh token is encrypted with AES-256-GCM and stored in a server-only Firestore integration document. The browser cannot read it. The Google OAuth client secret and encryption key are Firebase Function secrets.
-4. When FicVault saves a story, it waits briefly and sends the changed story to the authenticated Cloud Function. The function renews the short-lived Google access token as needed and creates or updates that story's Google Doc.
-5. FicVault records the Doc ID and its last modified time. If a Doc is edited directly in Google Docs after the last FicVault sync, automatic updates pause for that Doc to reduce the risk of overwriting external edits.
+1. A signed-in FicVault user chooses **Connect Google Drive** once and approves Google's `drive.file` permission.
+2. Google Identity Services gives the browser a short-lived access token.
+3. The browser calls the Google Drive API directly. No Firebase Cloud Function, OAuth refresh-token database, or paid Firebase plan is needed.
+4. When a story is saved, FicVault waits briefly and automatically creates or updates its native Google Doc.
+5. FicVault stores the Doc ID and last modified time in the user's FicVault archive. If the Doc was edited outside FicVault, automatic replacement pauses for that work rather than overwriting the external edit.
 
-This is a **one-way sync from FicVault to Google Docs**. Changes made directly in Google Docs are not imported into the FicVault editor. A conflict can be explicitly resolved by choosing to replace the Doc with the current FicVault version after reviewing the warning.
+This is **one-way sync: FicVault → Google Docs**. Changes made directly in Google Docs are not imported into the FicVault editor.
 
-Google access still requires user consent. Firebase sign-in alone does not grant Drive permissions. FicVault passes the signed-in email as Google's `login_hint` so the same account can be suggested, but Google still lets the user choose another account. The Drive grant is stored under the authenticated FicVault UID. Users do not paste OAuth client details into the browser; the one-time consent screen is the only per-user connection step.
+The browser must be open and online for an immediate automatic update. On a later visit, FicVault can attempt silent Google reauthorization if the user previously granted access. Google may still show consent again when its authorization state requires it.
 
-## 1. Firebase Authentication and Firestore
+## Firebase setup
 
-1. Open the Firebase Console and select project `my-ficvault`.
-2. Under **Authentication → Sign-in method**, enable **Email/Password** and **Google** (for the available login options).
-3. Under **Authentication → Settings → Authorized domains**, add your GitHub Pages hostname, such as `YOUR-USERNAME.github.io`.
-4. Create a Firestore database.
-5. Publish `firestore.rules` from this folder.
+1. Open Firebase Console and select `my-ficvault`.
+2. Enable **Email/Password** and **Google** under Authentication → Sign-in method.
+3. Add the GitHub Pages hostname/custom domain under Authentication → Settings → Authorized domains.
+4. Create Firestore.
+5. Publish `firestore.rules`.
 
-FicVault stores story documents at `users/{uid}/fics/{ficId}`, archive metadata at `users/{uid}/vault/meta`, and profile data at `users/{uid}`. The OAuth refresh-token record is stored at `users/{uid}/integrations/googleDrive`; the rules deliberately deny browser clients access to this path. Cloud Functions use the Admin SDK to manage it.
+FicVault stores stories under the authenticated user's UID. Browser clients are denied access to other users' records.
 
-## 2. Configure Google OAuth once for the application owner
+## Google Cloud setup
 
-These steps are for the FicVault project owner/developer, not for every FicVault user.
+These steps are for the FicVault owner/developer, not for each user.
 
-1. In Google Cloud Console, select the Google Cloud project associated with this app (or another project you control).
+1. Open Google Cloud Console and select the project used by FicVault.
 2. Enable **Google Drive API**.
-3. Configure the OAuth consent screen / Google Auth Platform. Add test users while the app is in testing mode. Complete Google's verification requirements before opening the integration to a wider public audience, if Google requires verification for the chosen app/scopes.
+3. Configure the Google Auth Platform / OAuth consent screen.
 4. Create an OAuth 2.0 Client ID with application type **Web application**.
-5. Add this exact **Authorized redirect URI**:
+5. Add the exact website origins where FicVault will run to **Authorized JavaScript origins**, for example your GitHub Pages custom domain.
+6. Open `drive-client.js` and replace `YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com` with that Web Client ID.
 
-   `https://us-central1-my-ficvault.cloudfunctions.net/googleDriveOAuthCallback`
+The OAuth client ID is not a password and can be included in frontend JavaScript. Do **not** put a client secret in the repository; this browser-based flow does not need one.
 
-6. Copy the OAuth Client ID and Client Secret. They are used only by Cloud Functions and must never be committed to GitHub or embedded in browser JavaScript.
-
-The integration requests only this scope:
+FicVault requests only:
 
 `https://www.googleapis.com/auth/drive.file`
 
-It is used for the files and folders FicVault creates or opens for this integration.
+This lets the app create and manage the files it creates or opens for this integration, rather than requesting unrestricted Drive access.
 
-### Important domain requirement for a public launch
+## OAuth verification / custom domain
 
-The sample callback in `functions/index.js` uses the default Cloud Functions hostname (`cloudfunctions.net`) so the backend can be tested before a custom domain is available. Google's current OAuth policy says production apps must use domains the app owner controls and may require verification of the domains used by the home page, Privacy Policy, Terms, and redirect URI. A default GitHub Pages address (`github.io`) and a shared Cloud Functions hostname are not domains you personally own. Before publishing Drive access to the public, use a custom domain you control for the FicVault website and a custom callback subdomain routed to this Cloud Function; then update `REDIRECT_URI` in `functions/index.js` and register that exact callback URI in the Google OAuth client. The current default callback should be treated as a development/testing configuration until this domain requirement is resolved. See Google's [OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies) and [brand verification requirements](https://developers.google.com/identity/verification/authentication-policy-compliance).
+For a public launch, follow Google's current OAuth verification requirements for your chosen scopes and app configuration. A custom domain is useful because you can verify ownership of the website in Google Search Console and use the same controlled domain in your OAuth configuration.
 
-## 3. Deploy the secure Google Drive backend
+The GitHub Pages site can continue to host the app for free; the custom domain only changes the public address.
 
-**Important:** Firebase Cloud Functions require the Firebase **Blaze** (pay-as-you-go) plan and a linked Cloud Billing account. There may be no-cost quotas, but billing must be enabled and usage beyond applicable no-cost quotas can incur charges. Set budget alerts and review Cloud Functions / Cloud Run usage before opening the app to others. Budget alerts are notifications, not a guaranteed spending cap.
+## Automatic sync behavior
 
-From the project folder:
+- New eligible stories are created as native Google Docs automatically.
+- Saved changes are pushed after a short debounce.
+- The app records the Google Doc's `modifiedTime`.
+- If Google Docs was changed outside FicVault, the app pauses that work instead of silently overwriting it.
+- The existing manual sync button is retained only as a conflict-resolution action.
+- Disconnecting Google Drive does not delete existing Google Docs.
 
-1. Install the Firebase CLI and sign in:
+## Important limitation
 
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase use my-ficvault
-   ```
+Because this is a browser-only OAuth integration, FicVault cannot perform Drive synchronization while the website is completely closed. This avoids storing long-lived Google credentials on a server and keeps the project compatible with GitHub Pages and Firebase's free plan.
 
-2. Install the function dependencies:
+## Deploying to GitHub Pages
 
-   ```bash
-   cd functions
-   npm install
-   cd ..
-   ```
-
-3. Save the Google OAuth credentials as server-side Firebase secrets:
-
-   ```bash
-   firebase functions:secrets:set GOOGLE_OAUTH_CLIENT_ID
-   firebase functions:secrets:set GOOGLE_OAUTH_CLIENT_SECRET
-   ```
-
-   Paste the corresponding values when prompted. Do not put them in `firebase.js`, HTML, GitHub Actions, or any public repository file.
-
-4. Generate a random 32-byte encryption key and store it as a secret:
-
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   firebase functions:secrets:set DRIVE_TOKEN_ENCRYPTION_KEY
-   ```
-
-   Copy the generated 64-character hex value into the Firebase secret prompt. Keep it private and retain a secure backup. If you lose this key, existing stored refresh tokens cannot be decrypted and users will need to connect Drive again.
-
-5. Deploy the functions:
-
-   ```bash
-   firebase deploy --only functions
-   ```
-
-   During deployment, Firebase will ask for `FICVAULT_APP_URL`. Enter the public base URL of the GitHub Pages project, for example `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY` (without a trailing slash). For local development, use an HTTPS tunnel or configure a separate test Firebase project; Google OAuth redirect URIs require HTTPS except approved localhost use.
-
-The functions use the `us-central1` region. If you change the region or Firebase project, update the region/project constants in `functions/index.js`, the function region in `firebase.js`, and the registered Google OAuth redirect URI together.
-
-## 4. Publish the website on GitHub Pages
-
-1. Create a GitHub repository for FicVault.
-2. Upload the **contents** of this folder to the repository root. Keep the `functions/` folder and Firebase config files in the repository as well.
-3. In GitHub, open **Settings → Pages**.
-4. Select **Deploy from a branch**, then choose your main branch and `/ (root)`.
-5. In Firebase Authentication → Authorized domains, add the GitHub Pages hostname (for example `YOUR-USERNAME.github.io`).
-
-The Cloud Functions backend is deployed separately with Firebase CLI; GitHub Pages only hosts the static HTML, CSS, and browser JavaScript.
-
-## 5. What users see
-
-- In **Settings → Google Drive & Docs**, choose **Connect Google Drive** once and approve the permission in Google's consent screen.
-- Automatic Google Docs sync is enabled by default. New non-sample works get a Google Doc, and later saved edits update that same Doc after a short debounce.
-- The browser must be online for an immediate push. If it closes before a queued update finishes, FicVault checks for unsynced works and retries the next time that account opens the app.
-- The user can pause automatic Docs sync or disconnect Drive at any time.
-- Existing Google Docs remain in the user's Drive after disconnecting or deleting a FicVault entry.
-- FicVault cloud archive sync to Firestore is independent and remains automatic even when Google Drive is not connected.
-
-## Troubleshooting: Google Drive shows `internal [0]`
-
-This Firebase Functions SDK message means the browser did not receive an HTTP response from the callable request. It is not, by itself, a Google permission-denied response. It can occur when a request is blocked/aborted, the function endpoint is unavailable, or a server failure prevents a valid CORS response.
-
-1. In the project root, confirm the selected Firebase project:
-
-   ```bash
-   firebase use
-   ```
-
-   It must show `my-ficvault`.
-
-2. Check that these functions are deployed in `us-central1`:
-   - `startGoogleDriveAuthorization` (callable)
-   - `getGoogleDriveStatus` (callable)
-   - `googleDriveOAuthCallback` (HTTP)
-
-   In the Firebase Console, open **Build → Functions**. The function region must match `us-central1`, which is also configured in `firebase.js`.
-
-3. Read the authorization function logs:
-
-   ```bash
-   firebase functions:log --only startGoogleDriveAuthorization
-   ```
-
-   If the function was never deployed, deploy it from the project root:
-
-   ```bash
-   firebase deploy --only functions:startGoogleDriveAuthorization
-   ```
-
-   Or deploy all functions:
-
-   ```bash
-   firebase deploy --only functions
-   ```
-
-4. Confirm that the Firebase secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` exist and are bound to `startGoogleDriveAuthorization`. Confirm that the `FICVAULT_APP_URL` parameter is set to the public GitHub Pages URL (without `/index.html` and without a trailing slash). If you change any secret value, redeploy the functions that use it.
-
-5. If the function exists but the log shows no invocation at the time of the attempt, open browser Developer Tools → **Network**, click Connect Google Drive again, and inspect the request to `startGoogleDriveAuthorization`. A status of `(blocked)`, `(failed)`, or `0` points to a browser/network/CORS or endpoint-reachability problem. Check the Console for the corresponding network error.
-
-The Drive client now reports this condition in plain language and logs the Firebase error code/details in the browser console. Do not publish OAuth secrets or the token encryption key in GitHub, screenshots, or support messages.
-
-## 6. Existing Google Docs from the previous browser-token integration
-
-Old stories may contain a `driveFileId` from the previous client-side OAuth connection. The new backend will attempt to update that ID. Google may not allow the new OAuth client to access files created under a different OAuth app identity; if that happens, the backend creates a new Doc and leaves the old file untouched. Check your Drive folder after the first migration and remove old copies manually only after confirming the new Docs contain the right content.
-
-The app also stores `driveModifiedTime` after a successful backend sync. This helps detect a Doc edited outside FicVault. Older Docs without this field do not have a prior conflict baseline, so their first backend update cannot reliably detect historical external edits. Export or duplicate important Docs before first connecting the new backend.
-
-## 7. Archive migration and backup
-
-When the previous browser archive is available at the same website origin, FicVault can import the old localStorage data on first account sign-in. If the website origin changes, use the existing JSON export from the old site and import it into the new site. Browser storage is scoped by origin.
-
-Download a JSON backup before migration and periodically afterward. Firebase cloud sync and Google Docs are useful copies, but independent backups are still recommended.
-
-## 8. Before public release
-
-- Replace `your-email@example.com` in the policy pages with a support email you monitor.
-- Review the Terms and Privacy Policy for the actual operator and retention process; these are templates, not legal advice.
-- Complete Google's OAuth consent screen configuration and any required verification.
-- Confirm that Firestore rules deny client access to `users/{uid}/integrations/*`.
-- Test new account creation, sign-in, Drive consent, first-time document creation, subsequent updates, manual edits to a Google Doc (conflict pause), conflict replacement, disconnect, and reconnect.
-- Verify no OAuth Client Secret, encryption key, refresh token, Firebase service-account key, or `.env` file is committed.
-
-## Local testing
-
-Serve the site over HTTP rather than opening HTML files directly:
-
-```bash
-python3 -m http.server 8000
-```
-
-Then visit `http://localhost:8000/`. Add `localhost` to Firebase Authentication's authorized domains if you test there. For Google OAuth callback testing, use a separate OAuth client / project and configure the exact callback URI in its authorized redirect URIs.
+Upload the contents of this folder to your repository and enable GitHub Pages for the branch/folder containing these files. Make sure the deployed URL is one of the authorized JavaScript origins in Google Cloud.

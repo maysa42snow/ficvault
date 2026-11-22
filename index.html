@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FicVault — Fanfiction Writing Studio & Archive</title>
 
+  <!-- Google Identity Services for browser-based Google Drive authorization -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <!-- Google Fonts: Lora (editorial serif) & Inter (clean UI sans-serif) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2511,7 +2514,7 @@
     }
 
     /* =====================================================================
-       GOOGLE DRIVE / GOOGLE DOCS — SECURE BACKEND + AUTOMATIC SYNC
+       GOOGLE DRIVE / GOOGLE DOCS — BROWSER-BASED + AUTOMATIC SYNC
        ===================================================================== */
     function isDriveConnected() {
       return Boolean(driveLinked);
