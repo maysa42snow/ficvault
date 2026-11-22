@@ -3,7 +3,7 @@
  * No Firebase Cloud Functions or server-side OAuth tokens are required.
  */
 
-const GOOGLE_DRIVE_CLIENT_ID = '696541919515-9q12254kvcq0l7mo6g0k2lrr158vj3nm.apps.googleusercontent.com';
+const GOOGLE_DRIVE_CLIENT_ID = '696541919515-h5dlgf1njlqpiu1f4777ild7fs7tc58a.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const AUTH_STATE_KEY = 'ficvault_google_drive_authorized_v1';
 
